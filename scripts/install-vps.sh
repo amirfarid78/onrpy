@@ -23,7 +23,7 @@ ENV_FILE="${APP_DIR}/.env.production"
 
 RUN_USER="${SUDO_USER:-$USER}"
 if [[ "$RUN_USER" == "root" ]]; then
-  for c in deploy www-data ubuntu; do if id "$c" &>/dev/null; then RUN_USER="$c"; break; fi; done
+  for c in ubuntu debian deploy; do if id "$c" &>/dev/null; then RUN_USER="$c"; break; fi; done
 fi
 if [[ "$RUN_USER" == "root" ]]; then warn "No non-root user found. Will run as root."; fi
 RUN_GROUP="$(id -gn "$RUN_USER")"
@@ -123,8 +123,11 @@ success "env.example copied and database credentials injected."
 # ── 7. Build, Migrate, and Seed ────────────────────────────────────────────────
 header "Installing, Migrating, and Building App"
 
+info "Cleaning old node_modules (if any)..."
+rm -rf "${APP_DIR}/node_modules" "${APP_DIR}/.next" "${APP_DIR}/package-lock.json"
+
 info "Installing dependencies..."
-sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npm install"
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npm config set cache '${APP_DIR}/.npm-cache' --global=false && npm install"
 
 info "Generating Prisma client..."
 sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npx prisma generate"
