@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name      String?
+  email     String?  @unique
+  whatsapp  String?
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  profileImage String?
+  
+  password      String?  // Hashed password
+  phoneVerified Boolean  @default(false)
+
+  wallet    Wallet?
+  entries   PoolEntry[]
+  wins      Winner[]
+  adminLogs AdminLog[]
+  withdrawalRequests WithdrawalRequest[]
+
+  referralCode String? @unique
+  referredBy   String?
+  referrer     User?   @relation("UserReferrals", fields: [referredBy], references: [id])
+  referrals    User[]  @relation("UserReferrals")
+}
+
+model ReferralSetting {
+  id          String   @id @default(uuid())
+  rewardAmount Float   @default(50.0) // Amount in Rs
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  balance   Float    @default(0.0)
+  currency  String   @default("PKR")
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  transactions Transaction[]
+}
+
+model Transaction {
+  id        String            @id @default(uuid())
+  walletId  String
+  amount    Float
+  type      TransactionType
+  status    TransactionStatus @default(PENDING)
+  reference String? // e.g., Payment Gateway ID or Pool ID
+  createdAt DateTime          @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+}
+
+model WithdrawalRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  amount    Float
+  bankName  String
+  accountNumber String
+  accountTitle String
+  status    TransactionStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model LotteryPool {
+  id            String     @id @default(uuid())
+  productId     String? // Optional link to a product table if needed
+  productName   String
+  productImage  String
+  pricePerEntry Float      @default(1.0)
+  maxSlots      Int
+  filledSlots   Int        @default(0)
+  status        PoolStatus @default(OPEN)
+  startDate     DateTime   @default(now())
+  endDate       DateTime
+  drawTime      DateTime?
+  description   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  entries PoolEntry[]
+  winners Winner[]
+}
+
+model PoolEntry {
+  id           String   @id @default(uuid())
+  poolId       String
+  userId       String
+  ticketNumber Int // Simple sequential number or random
+  purchasedAt  DateTime @default(now())
+
+  pool LotteryPool @relation(fields: [poolId], references: [id])
+  user User        @relation(fields: [userId], references: [id])
+  winner Winner?
+
+  @@unique([poolId, ticketNumber])
+}
+
+model Winner {
+  id          String   @id @default(uuid())
+  poolId      String   @unique // One winner per pool for now
+  entryId     String   @unique
+  userId      String
+  prizeAmount Float
+  announcedAt DateTime @default(now())
+
+  pool  LotteryPool @relation(fields: [poolId], references: [id])
+  entry PoolEntry   @relation(fields: [entryId], references: [id])
+  user  User        @relation(fields: [userId], references: [id])
+}
+
+model AdminLog {
+  id        String   @id @default(uuid())
+  adminId   String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  ENTRY_FEE
+  PRIZE_CREDIT
+  REFERRAL_BONUS
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+enum PoolStatus {
+  OPEN
+  CLOSED
+  DRAWN
+  CANCELLED
+}
+
+model Ad {
+  id        String   @id @default(uuid())
+  title     String
+  imageUrl  String
+  linkUrl   String?
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
