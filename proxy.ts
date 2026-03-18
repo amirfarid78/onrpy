@@ -12,7 +12,7 @@ const protectedRoutes = ["/dashboard", "/wallet", "/pools", "/admin", "/upcoming
 // Routes that are public (no auth required)
 const publicRoutes = ["/", "/login", "/signup"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Check if the route is protected
