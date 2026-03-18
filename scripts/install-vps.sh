@@ -49,7 +49,19 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
   ca-certificates curl gnupg git rsync nginx postgresql postgresql-contrib build-essential ufw certbot python3-certbot-nginx \
   2>&1 | grep -E '^(Get|Setting|Unpacking|Selecting|Preparing|Processing|E:)' || true
 success "System packages installed."
-
+# ── 2.5 Add Swap Space ─────────────────────────────────────────────────────────
+header "Checking Swap Space"
+if [[ "$(free -m | awk '/^Swap:/ {print $2}')" -eq 0 ]]; then
+  info "No swap file found. Creating 2GB swap to prevent Next.js build crashes..."
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  success "2GB swap file created and enabled."
+else
+  success "Swap space is already configured."
+fi
 # ── 3. Node.js & PM2 ───────────────────────────────────────────────────────────
 header "Node.js & PM2"
 if ! command_exists node || [[ "$(node -v | sed -E 's/^v([0-9]+).*/\1/')" -lt 20 ]]; then
