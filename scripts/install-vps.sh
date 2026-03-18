@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  onrpy – Simplified VPS Provisioner
-#  Tested on: Ubuntu 22.04 LTS / Ubuntu 24.04 LTS
+#  onrpy – Fully Automated VPS Provisioner (Zero-Touch to Live)
 #  Usage:  sudo bash scripts/install-vps.sh
 # =============================================================================
 set -Eeuo pipefail
@@ -24,131 +23,145 @@ ENV_FILE="${APP_DIR}/.env.production"
 
 RUN_USER="${SUDO_USER:-$USER}"
 if [[ "$RUN_USER" == "root" ]]; then
-  for c in deploy www-data ubuntu; do
-    if id "$c" &>/dev/null; then RUN_USER="$c"; break; fi
-  done
+  for c in deploy www-data ubuntu; do if id "$c" &>/dev/null; then RUN_USER="$c"; break; fi; done
 fi
 if [[ "$RUN_USER" == "root" ]]; then warn "No non-root user found. Will run as root."; fi
 RUN_GROUP="$(id -gn "$RUN_USER")"
+RUN_HOME="$(eval echo "~${RUN_USER}")"
 
 [[ "${EUID}" -ne 0 ]] && error "Please run with sudo or as root."
-
 command_exists() { command -v "$1" &>/dev/null; }
 
 DB_NAME="onrpy"
 DB_USER="onrpy_user"
-DB_PASSWORD="$(tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c 32 || true)"
-DOMAIN_OR_IP=""
+DB_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 || true)"
 APP_PORT="3000"
 
-collect_inputs() {
-  header "onrpy VPS Provisioner"
-  echo "This script will install Node.js, PM2, Nginx, and setup the PostgreSQL database."
-  read -r -p "Enter Domain name or public IP address: " DOMAIN_OR_IP
-  [[ -z "$DOMAIN_OR_IP" ]] && error "Domain/IP is required."
-}
+# ── 1. Read Domain ─────────────────────────────────────────────────────────────
+header "onrpy - Full Auto Installer"
+read -r -p "Enter your Domain Name (e.g. reelo.com) or Public IP: " DOMAIN_OR_IP
+[[ -z "$DOMAIN_OR_IP" ]] && error "Domain/IP is required."
 
-install_system_packages() {
-  header "Installing System Packages"
+# ── 2. System Packages ─────────────────────────────────────────────────────────
+header "Installing System Packages"
+apt-get update -q
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  ca-certificates curl gnupg git rsync nginx postgresql postgresql-contrib build-essential ufw certbot python3-certbot-nginx \
+  2>&1 | grep -E '^(Get|Setting|Unpacking|Selecting|Preparing|Processing|E:)' || true
+success "System packages installed."
+
+# ── 3. Node.js & PM2 ───────────────────────────────────────────────────────────
+header "Node.js & PM2"
+if ! command_exists node || [[ "$(node -v | sed -E 's/^v([0-9]+).*/\1/')" -lt 20 ]]; then
+  info "Installing Node.js 20.x..."
+  mkdir -p /etc/apt/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
   apt-get update -q
-  DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    ca-certificates curl gnupg git rsync nginx postgresql postgresql-contrib build-essential ufw certbot python3-certbot-nginx \
-    2>&1 | grep -E '^(Get|Setting|Unpacking|Selecting|Preparing|Processing|E:)' || true
-  success "System packages installed."
-}
+  DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+fi
+success "Node.js $(node -v) installed."
 
-install_nodejs_and_pm2() {
-  header "Node.js & PM2"
-  if ! command_exists node || [[ "$(node -v | sed -E 's/^v([0-9]+).*/\1/')" -lt 20 ]]; then
-    info "Installing Node.js 20.x..."
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
-    apt-get update -q
-    DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-  fi
-  success "Node.js $(node -v) installed."
+if ! command_exists pm2; then npm install -g pm2; fi
+success "PM2 installed."
 
-  if ! command_exists pm2; then npm install -g pm2; fi
-  success "PM2 installed."
-}
+# ── 4. Directories & Sync ──────────────────────────────────────────────────────
+header "Syncing Project Files"
+mkdir -p "$APP_DIR" "$LOG_DIR"
+chown -R "${RUN_USER}:${RUN_GROUP}" "$APP_DIR" "$LOG_DIR"
 
-setup_directories() {
-  header "Directories"
-  mkdir -p "$APP_DIR" "$LOG_DIR"
-  chown -R "${RUN_USER}:${RUN_GROUP}" "$APP_DIR" "$LOG_DIR"
-  success "Directories created."
-}
+rsync -a --delete \
+  --exclude '.git' \
+  --exclude 'node_modules' \
+  --exclude '.next' \
+  --exclude '*.log' \
+  "$(dirname "$0")/../" "${APP_DIR}/"
 
-setup_postgres() {
-  header "PostgreSQL Setup"
-  systemctl enable postgresql --now
+chown -R "${RUN_USER}:${RUN_GROUP}" "$APP_DIR"
+success "Project files synced to ${APP_DIR}."
 
-  local esc_pw="${DB_PASSWORD//\'/\'\'}"
-  
-  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
-    sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH ENCRYPTED PASSWORD '${esc_pw}';"
-  else
-    sudo -u postgres psql -c "ALTER USER ${DB_USER} WITH ENCRYPTED PASSWORD '${esc_pw}';"
-  fi
+# ── 5. PostgreSQL Database Setup ───────────────────────────────────────────────
+header "PostgreSQL Database Setup"
+systemctl enable postgresql --now
+sleep 3 # Ensure service is fully up
 
-  if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
-    sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
-  fi
-  sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'" | grep -q 1; then
+  sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH ENCRYPTED PASSWORD '${DB_PASSWORD}';"
+else
+  sudo -u postgres psql -c "ALTER USER ${DB_USER} WITH ENCRYPTED PASSWORD '${DB_PASSWORD}';"
+fi
 
-  local hba_file
-  hba_file="$(sudo -u postgres psql -tAc "SHOW hba_file")"
-  if ! grep -qE "^host\s+all\s+all\s+127\.0\.0\.1/32\s+md5" "$hba_file" 2>/dev/null; then
-    echo "host    all             all             127.0.0.1/32            md5" >> "$hba_file"
-    systemctl reload postgresql
-  fi
-  success "Database '${DB_NAME}' and user '${DB_USER}' configured."
-}
+if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
+  sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
+fi
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};"
 
-write_starter_env() {
-  header "Starter .env.production"
-  local db_url="postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:5432/${DB_NAME}?schema=public"
-  local jwt_secret="$(tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c 64 || true)"
+# Ensure pg_hba.conf allows local md5 auth
+hba_file="$(sudo -u postgres psql -tAc "SHOW hba_file")"
+if ! grep -qE "^host\s+all\s+all\s+127\.0\.0\.1/32\s+md5" "$hba_file" 2>/dev/null; then
+  echo "host    all             all             127.0.0.1/32            md5" >> "$hba_file"
+  systemctl reload postgresql
+fi
+success "Database created successfully."
 
-  cat > "$ENV_FILE" <<EOF
-NODE_ENV=production
-PORT=${APP_PORT}
-DATABASE_URL=${db_url}
-JWT_SECRET=${jwt_secret}
+# ── 6. Environment Setup ───────────────────────────────────────────────────────
+header "Environment Config (.env.production)"
+cp "${APP_DIR}/env.example" "$ENV_FILE"
 
-# ⚠️ ACTION REQUIRED: Fill out the rest of this file manually before starting the app!
+# Inject DB credentials and JWT Secret
+local_db_url="postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:5432/${DB_NAME}?schema=public"
+jwt_secret="$(tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c 64 || true)"
 
-ADMIN_PHONE=+923001234567
-ADMIN_PASSWORD=change-me-to-a-secure-password
-ADMIN_NAME=Admin
-REFERRAL_REWARD_AMOUNT=50
+# Use sed to replace the placeholder values
+sed -i "s|^DATABASE_URL=.*|DATABASE_URL=\"${local_db_url}\"|" "$ENV_FILE"
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=\"${jwt_secret}\"|" "$ENV_FILE"
 
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+chown "${RUN_USER}:${RUN_GROUP}" "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+success "env.example copied and database credentials injected."
 
-FIREBASE_PROJECT_ID=
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-EOF
+# ── 7. Build, Migrate, and Seed ────────────────────────────────────────────────
+header "Installing, Migrating, and Building App"
 
-  chown "${RUN_USER}:${RUN_GROUP}" "$ENV_FILE"
-  chmod 600 "$ENV_FILE"
-  success "Written to ${ENV_FILE}"
-}
+info "Installing dependencies..."
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npm install"
 
-configure_nginx_and_ufw() {
-  header "Nginx & UFW Firewall"
-  local conf="/etc/nginx/sites-available/${APP_NAME}"
-  cat > "$conf" <<NGEOF
+info "Generating Prisma client..."
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npx prisma generate"
+
+info "Migrating database..."
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; npx prisma migrate deploy"
+
+info "Seeding database..."
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; npm run db:seed" || warn "Seed script returned an error, skipping."
+
+info "Building Next.js..."
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; npm run build"
+
+success "App built and ready."
+
+# ── 8. PM2 Process Guard ───────────────────────────────────────────────────────
+header "Starting PM2 Process"
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && pm2 delete '${APP_NAME}' 2>/dev/null || true"
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; pm2 start ecosystem.config.js"
+sudo -u "$RUN_USER" bash -lc "pm2 save"
+
+pm2 startup systemd -u "$RUN_USER" --hp "$RUN_HOME" 2>/dev/null | grep 'sudo' | bash || true
+success "PM2 running and saved on boot."
+
+# ── 9. Nginx & SSL ─────────────────────────────────────────────────────────────
+header "Nginx Configuration & SSL"
+
+nginx_conf="/etc/nginx/sites-available/${APP_NAME}"
+cat > "$nginx_conf" <<NGEOF
 server {
     listen 80;
     server_name ${DOMAIN_OR_IP};
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:${APP_PORT};
         proxy_http_version 1.1;
@@ -158,45 +171,37 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
     }
 }
 NGEOF
-  ln -sf "$conf" "/etc/nginx/sites-enabled/${APP_NAME}"
-  rm -f /etc/nginx/sites-enabled/default
-  systemctl enable nginx --now
-  systemctl restart nginx
 
-  ufw allow OpenSSH >/dev/null
-  ufw allow 'Nginx Full' >/dev/null
-  ufw --force enable >/dev/null
-  success "Nginx proxy created and UFW enabled."
-}
+ln -sf "$nginx_conf" "/etc/nginx/sites-enabled/${APP_NAME}"
+rm -f /etc/nginx/sites-enabled/default
+systemctl enable nginx --now
+systemctl restart nginx
 
-print_summary() {
-  echo -e "\n${BOLD}${GREEN}✓ VPS Provisioning Complete!${RESET}"
-  echo -e "\n${BOLD}PostgreSQL Credentials:${RESET}"
-  echo "  Database: ${DB_NAME}"
-  echo "  User:     ${DB_USER}"
-  echo "  Password: ${DB_PASSWORD}"
-  echo -e "\n${BOLD}Next Steps for You:${RESET}"
-  echo -e "  1. Copy your code to ${APP_DIR}."
-  echo -e "  2. Edit ${ENV_FILE} and fill in Firebase/Admin details."
-  echo -e "  3. Run: npm install"
-  echo -e "  4. Run: npx prisma migrate deploy"
-  echo -e "  5. Run: npm run db:seed"
-  echo -e "  6. Run: npm run build"
-  echo -e "  7. Run: pm2 start ecosystem.config.js\n"
-}
+# UFW Firewall
+ufw allow OpenSSH >/dev/null
+ufw allow 'Nginx Full' >/dev/null
+ufw --force enable >/dev/null
 
-main() {
-  collect_inputs
-  install_system_packages
-  install_nodejs_and_pm2
-  setup_directories
-  setup_postgres
-  write_starter_env
-  configure_nginx_and_ufw
-  print_summary
-}
+# Attempt SSL if it looks like a domain (contains a dot, doesn't start with a number)
+if [[ "$DOMAIN_OR_IP" =~ [a-zA-Z] ]]; then
+  info "Attempting Let's Encrypt SSL for ${DOMAIN_OR_IP}..."
+  certbot --nginx -d "$DOMAIN_OR_IP" --non-interactive --agree-tos -m "admin@${DOMAIN_OR_IP}" --redirect || warn "SSL failed (ensure DNS points to this IP)."
+else
+  info "IP Address detected, skipping Let's Encrypt SSL."
+fi
 
-main "$@"
+# ── Summary ────────────────────────────────────────────────────────────────────
+echo -e "\n${BOLD}${GREEN}====================================================${RESET}"
+echo -e "${BOLD}${GREEN} ✓ INSTALLATION COMPLETE & LIVE!${RESET}"
+echo -e "${BOLD}${GREEN}====================================================${RESET}\n"
+echo -e "  ${BOLD}URL:${RESET}       http://${DOMAIN_OR_IP}"
+echo -e "  ${BOLD}Database:${RESET}  ${DB_NAME} / ${DB_USER}"
+echo -e "  ${BOLD}DB Pass:${RESET}   ${DB_PASSWORD}"
+echo -e "\n  ${BOLD}Next steps:${RESET}"
+echo -e "  1. If you need to edit your Firebase keys in the future, edit:"
+echo -e "     nano ${ENV_FILE}"
+echo -e "     then run: pm2 reload ${APP_NAME}\n"
