@@ -41,8 +41,7 @@ export async function POST(
           entryId: winningEntry.id,
           userId: winningEntry.userId,
           prizeAmount: pool.pricePerEntry * pool.maxSlots, // Estimated value
-          claimed: false,
-          wonAt: new Date(),
+          announcedAt: new Date(),
         },
       });
 

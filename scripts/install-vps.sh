@@ -144,8 +144,8 @@ sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npm config set cache '${APP_DIR
 info "Generating Prisma client..."
 sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && npx prisma generate"
 
-info "Migrating database..."
-sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; npx prisma migrate deploy"
+info "Pushing database schema..."
+sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; npx prisma db push --accept-data-loss"
 
 info "Seeding database..."
 sudo -u "$RUN_USER" bash -lc "cd '${APP_DIR}' && set -a; source '${ENV_FILE}'; set +a; npm run db:seed" || warn "Seed script returned an error, skipping."
