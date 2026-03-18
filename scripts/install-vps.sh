@@ -23,7 +23,11 @@ LOG_DIR="/var/log/${APP_NAME}"
 ENV_FILE="${APP_DIR}/.env.production"
 
 RUN_USER="${SUDO_USER:-$USER}"
-if [[ "$RUN_USER" == "root" ]]; for c in deploy www-data ubuntu; do if id "$c" &>/dev/null; then RUN_USER="$c"; break; fi; done
+if [[ "$RUN_USER" == "root" ]]; then
+  for c in deploy www-data ubuntu; do
+    if id "$c" &>/dev/null; then RUN_USER="$c"; break; fi
+  done
+fi
 if [[ "$RUN_USER" == "root" ]]; then warn "No non-root user found. Will run as root."; fi
 RUN_GROUP="$(id -gn "$RUN_USER")"
 
