@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { getAdminAuth } from "@/lib/firebase-admin";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify Firebase token
-        const decodedToken = await adminAuth.verifyIdToken(firebaseToken);
+        const decodedToken = await getAdminAuth().verifyIdToken(firebaseToken);
         const { phone_number: firebasePhone } = decodedToken;
 
         if (!firebasePhone) {
