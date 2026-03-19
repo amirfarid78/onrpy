@@ -16,16 +16,28 @@ export default function LoginPage() {
         setLoading(true);
         setError("");
 
+        // Normalize phone: strip leading +92, 92, or 0 then send raw digits
+        // The API's validatePhoneNumber will format it correctly
+        let rawPhone = phoneNumber.trim();
+        // Remove spaces and dashes
+        rawPhone = rawPhone.replace(/[\s\-]/g, "");
+        // If user typed something starting with +92 or 92, strip it so we just have 10 digits
+        // Then pass the 10-digit string; the API adds +92
+        if (rawPhone.startsWith("+92")) rawPhone = rawPhone.slice(3);
+        else if (rawPhone.startsWith("92") && rawPhone.length === 12) rawPhone = rawPhone.slice(2);
+        else if (rawPhone.startsWith("0")) rawPhone = rawPhone.slice(1);
+
         try {
             const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ phoneNumber, password }),
+                body: JSON.stringify({ phoneNumber: rawPhone, password }),
             });
 
+            const data = await res.json();
+
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || "Login failed");
+                throw new Error(data.error || "Login failed. Please check your credentials.");
             }
 
             // Redirect to dashboard on success
