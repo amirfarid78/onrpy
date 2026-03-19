@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 // Force rebuild
 export async function POST(
@@ -34,7 +35,7 @@ export async function POST(
     const winningEntry = pool.entries[randomIndex];
 
     // 3. Transaction: Create Winner & Update Pool
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
       const winner = await tx.winner.create({
         data: {
           poolId: pool.id,
