@@ -46,6 +46,7 @@ export async function verifyJWT(token: string) {
         const { payload } = await jwtVerify(token, getJwtSecret());
         return payload;
     } catch (error) {
+        console.error("JWT Verification Error in lib/auth.ts:", error);
         return null;
     }
 }

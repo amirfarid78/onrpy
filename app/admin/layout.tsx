@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { jwtVerify } from "jose";
+import { verifyJWT } from "@/lib/auth";
 import Link from "next/link";
 import { LayoutDashboard, Users, Ticket, Receipt, LogOut, Trophy, Settings, Megaphone } from "lucide-react";
 
@@ -16,17 +16,11 @@ export default async function AdminLayout({
         redirect("/login");
     }
 
-    try {
-        const secret = new TextEncoder().encode(
-            process.env.JWT_SECRET || "default-secret-key-change-me"
-        );
-        const { payload } = await jwtVerify(session, secret);
+    const payload = await verifyJWT(session);
+    if (!payload) redirect("/login");
 
-        if (payload.role !== "ADMIN") {
-            redirect("/dashboard"); // Redirect non-admins to user dashboard
-        }
-    } catch (error) {
-        redirect("/login");
+    if (payload.role !== "ADMIN") {
+        redirect("/dashboard"); // Redirect non-admins to user dashboard
     }
 
     return (

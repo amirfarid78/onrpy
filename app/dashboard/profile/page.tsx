@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
+import { verifyJWT } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import ProfileForm from "./profile-form";
 import MobileNav from "@/components/MobileNav";
@@ -12,13 +12,9 @@ async function getUser() {
     const session = cookieStore.get("session")?.value;
     if (!session) return null;
 
-    try {
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default-secret-key-change-me");
-        const { payload } = await jwtVerify(session, secret);
-        return await prisma.user.findUnique({ where: { id: payload.sub as string } });
-    } catch (error) {
-        return null;
-    }
+    const payload = await verifyJWT(session);
+    if (!payload) return null;
+    return await prisma.user.findUnique({ where: { id: payload.sub as string } });
 }
 
 export default async function ProfilePage() {

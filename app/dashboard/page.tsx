@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
-import { jwtVerify } from "jose";
+import { verifyJWT } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AdBanner from "@/components/AdBanner";
@@ -12,29 +12,25 @@ async function getUser() {
     const session = cookieStore.get("session")?.value;
     if (!session) return null;
 
-    try {
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || "default-secret-key-change-me");
-        const { payload } = await jwtVerify(session, secret);
+    const payload = await verifyJWT(session);
+    if (!payload) return null;
 
-        const user = await prisma.user.findUnique({
-            where: { id: payload.sub as string },
-            include: {
-                wallet: true,
-                entries: {
-                    include: { pool: true },
-                    orderBy: { purchasedAt: "desc" },
-                    take: 5
-                },
-                wins: {
-                    include: { pool: true },
-                    take: 3
-                }
+    const user = await prisma.user.findUnique({
+        where: { id: payload.sub as string },
+        include: {
+            wallet: true,
+            entries: {
+                include: { pool: true },
+                orderBy: { purchasedAt: "desc" },
+                take: 5
             },
-        });
-        return user;
-    } catch (error) {
-        return null;
-    }
+            wins: {
+                include: { pool: true },
+                take: 3
+            }
+        },
+    });
+    return user;
 }
 
 export default async function DashboardPage() {
