@@ -1,11 +1,11 @@
 import bcrypt from "bcrypt";
 import { SignJWT, jwtVerify } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
+const SALT_ROUNDS = 10;
+
+const getJwtSecret = () => new TextEncoder().encode(
     process.env.JWT_SECRET || "default-secret-key-change-me"
 );
-
-const SALT_ROUNDS = 10;
 
 /**
  * Hash a password using bcrypt
@@ -35,7 +35,7 @@ export async function generateJWT(
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
         .setExpirationTime("7d")
-        .sign(JWT_SECRET);
+        .sign(getJwtSecret());
 }
 
 /**
@@ -43,7 +43,7 @@ export async function generateJWT(
  */
 export async function verifyJWT(token: string) {
     try {
-        const { payload } = await jwtVerify(token, JWT_SECRET);
+        const { payload } = await jwtVerify(token, getJwtSecret());
         return payload;
     } catch (error) {
         return null;

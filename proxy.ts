@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
+const getJwtSecret = () => new TextEncoder().encode(
     process.env.JWT_SECRET || "default-secret-key-change-me"
 );
 
@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
 
         try {
             // Verify JWT token
-            const { payload } = await jwtVerify(sessionCookie.value, JWT_SECRET);
+            const { payload } = await jwtVerify(sessionCookie.value, getJwtSecret());
 
             // Check if user is admin for admin routes
             if (pathname.startsWith("/admin") && payload.role !== "ADMIN") {
