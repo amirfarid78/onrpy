@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
         const cookieStore = await cookies();
         cookieStore.set("session", token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            secure: false, // Works behind all SSL proxies locally and production
+            sameSite: "lax", // Prevent blocking
             maxAge: 60 * 60 * 24 * 7, // 7 days
             path: "/",
         });

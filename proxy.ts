@@ -52,7 +52,8 @@ export async function proxy(request: NextRequest) {
             // Token is valid, allow access
             return NextResponse.next();
         } catch (error) {
-            // Invalid token, redirect to login
+            // Invalid token, log and redirect to login
+            console.error("JWT Verification Failed in Proxy:", error);
             const url = new URL("/login", request.url);
             const response = NextResponse.redirect(url);
 
