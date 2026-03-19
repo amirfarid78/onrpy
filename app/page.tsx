@@ -5,8 +5,8 @@ import Logo from "@/components/Logo";
 import LiveWinTicker from "@/components/LiveWinTicker";
 import prisma from "@/lib/prisma";
 
-// Next.js 15+ allows dynamic rendering but this page should revalidate often
-export const revalidate = 60; // Revalidate every minute
+// Force dynamic rendering to prevent Next.js from executing Prisma queries during the static build phase
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   // Fetch real active pools from database
