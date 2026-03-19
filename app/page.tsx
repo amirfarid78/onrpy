@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, Gift, Zap, Shield, TrendingUp, Users, Trophy, ArrowRight, Star, CheckCircle, ShieldCheck } from "lucide-react";
+import { Sparkles, Gift, Zap, Shield, TrendingUp, Users, Trophy, ArrowRight, Star, CheckCircle, ShieldCheck, Target } from "lucide-react";
 import PrizeCard from "@/components/PrizeCard";
 import Logo from "@/components/Logo";
 import LiveWinTicker from "@/components/LiveWinTicker";
