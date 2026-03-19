@@ -8,6 +8,22 @@ const config: Config = {
     ],
     theme: {
         extend: {
+            keyframes: {
+                float: {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-20px)' },
+                },
+                'fade-in': {
+                    from: { opacity: "0", transform: 'translateY(10px)' },
+                    to: { opacity: "1", transform: 'translateY(0)' },
+                },
+            },
+            animation: {
+                float: 'float 6s ease-in-out infinite',
+                'float-slow': 'float 8s ease-in-out infinite',
+                'float-delayed': 'float 7s ease-in-out infinite 2s',
+                'fade-in': 'fade-in 1s ease-out forwards',
+            },
             colors: {
                 primary: {
                     DEFAULT: "#FF6B35",
