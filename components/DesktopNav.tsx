@@ -3,9 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Ticket, Wallet, User, Users, LogOut, Trophy, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function DesktopNav() {
     const pathname = usePathname();
+    const [siteName, setSiteName] = useState("Zeva - One Rupee Game");
+    const [logoUrl, setLogoUrl] = useState("");
+
+    useEffect(() => {
+        fetch("/api/settings").then(r => r.json()).then(data => {
+            if (data.settings) {
+                setSiteName(data.settings.siteName || "Zeva - One Rupee Game");
+                setLogoUrl(data.settings.logoUrl || "");
+            }
+        }).catch(() => {});
+    }, []);
 
     const navItems = [
         { href: "/dashboard", icon: Home, label: "Dashboard" },
@@ -19,11 +31,17 @@ export default function DesktopNav() {
 
     return (
         <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col fixed inset-y-0 z-50">
-            <div className="p-6 border-b border-gray-100">
-                <h1 className="text-2xl font-black gradient-text">
-                    One Rupee
-                </h1>
-                <p className="text-xs text-gray-500 mt-0.5">Win Big, Pay Small</p>
+            <div className="p-6 border-b border-gray-100 flex items-center justify-center">
+                {logoUrl ? (
+                    <img src={logoUrl} alt={siteName} className="h-10 object-contain w-auto max-w-[150px]" />
+                ) : (
+                    <div>
+                        <h1 className="text-xl font-black gradient-text truncate" title={siteName}>
+                            {siteName}
+                        </h1>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Win Big, Pay Small</p>
+                    </div>
+                )}
             </div>
 
             <nav className="flex-1 p-4 space-y-1 overflow-y-auto">

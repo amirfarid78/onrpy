@@ -178,3 +178,16 @@ model Ad {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+
+model SiteSetting {
+  id              String   @id @default("global")
+  siteName        String   @default("Zeva - One Rupee Game")
+  siteDescription String   @default("Pakistan's premier prize pool platform.")
+  contactEmail    String?
+  contactPhone    String?
+  logoUrl         String?
+  faviconUrl      String?
+  currencySymbol  String   @default("Rs.")
+  updatedAt       DateTime @updatedAt
+}
