@@ -61,9 +61,9 @@ cd $APP_DIR
 # Write .env file
 echo ">>> Writing .env file..."
 cat <<EOF > .env
-DATABASE_URL="$DB_URL"
-DIRECT_URL="$DIRECT_URL"
-JWT_SECRET="$JWT_SECRET"
+DATABASE_URL=${DB_URL//\"/}
+DIRECT_URL=${DIRECT_URL//\"/}
+JWT_SECRET=${JWT_SECRET//\"/}
 PORT=3000
 NODE_ENV=production
 EOF
