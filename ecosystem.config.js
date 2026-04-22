@@ -26,6 +26,9 @@ module.exports = {
       // Load all env vars from the production env file
       // (also passed explicitly by install-vps.sh via "set -a . .env.production set +a")
       env_file: '/opt/onrpy/.env.production',
+      env: {
+        NODE_OPTIONS: "--dns-result-order=ipv4first"
+      },
 
       // Logging
       out_file: '/var/log/onrpy/out.log',
