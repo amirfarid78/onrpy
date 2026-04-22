@@ -52,8 +52,9 @@ export default function DesktopNav() {
 
             <div className="p-4 border-t border-gray-100">
                 <button
-                    onClick={() => {
-                        // Handle logout - for now just redirect or clear cookie
+                    onClick={async () => {
+                        // Handle logout via API then clear client fallback cookie
+                        await fetch('/api/auth/logout', { method: 'POST' });
                         document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
                         window.location.href = "/login";
                     }}

@@ -40,11 +40,6 @@ export default async function DashboardPage() {
         redirect("/login");
     }
 
-    // Force profile completion
-    if (!user.address || !user.city) {
-        redirect("/dashboard/profile");
-    }
-
     const activePools = await prisma.lotteryPool.findMany({
         where: { status: "OPEN" },
         orderBy: { createdAt: "desc" },

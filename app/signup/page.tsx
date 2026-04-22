@@ -10,8 +10,6 @@ import { auth } from "@/lib/firebase";
 type SignupFormData = {
     fullName: string;
     phoneNumber: string;
-    whatsappNumber?: string;
-    address?: string;
     password: string;
     confirmPassword: string;
     referralCode?: string;
@@ -133,8 +131,6 @@ export default function SignupPage() {
                     firebaseToken,
                     fullName: formData.fullName,
                     phoneNumber: formattedPhone,
-                    whatsappNumber: formData.whatsappNumber,
-                    address: formData.address,
                     password: formData.password,
                     referralCode: formData.referralCode,
                 }),
@@ -219,34 +215,6 @@ export default function SignupPage() {
                                 {errors.phoneNumber && (
                                     <p className="text-red-500 text-xs ml-1">{errors.phoneNumber.message}</p>
                                 )}
-                            </div>
-
-                            {/* WhatsApp Number */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700 ml-1">WhatsApp Number (Optional)</label>
-                                <div className="relative">
-                                    <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="tel"
-                                        {...register("whatsappNumber")}
-                                        className="block w-full pl-10 py-3 px-4 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all shadow-sm focus:shadow-md"
-                                        placeholder="+92 300 1234567"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Address */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-gray-700 ml-1">Address (Optional)</label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        {...register("address")}
-                                        className="block w-full pl-10 py-3 px-4 rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all shadow-sm focus:shadow-md"
-                                        placeholder="Your address"
-                                    />
-                                </div>
                             </div>
 
                             {/* Password */}

@@ -12,8 +12,6 @@ export async function POST(request: NextRequest) {
             firebaseToken,
             fullName,
             phoneNumber,
-            whatsappNumber,
-            address,
             password,
             referralCode,
         } = body;
@@ -106,8 +104,6 @@ export async function POST(request: NextRequest) {
                 data: {
                     phone: formattedPhone,
                     name: sanitizeInput(fullName),
-                    whatsapp: whatsappNumber ? sanitizeInput(whatsappNumber) : null,
-                    address: address ? sanitizeInput(address) : null,
                     password: hashedPassword,
                     phoneVerified: true,
                     referralCode: newReferralCode,

@@ -6,6 +6,7 @@ import ProfileForm from "./profile-form";
 import MobileNav from "@/components/MobileNav";
 import Link from "next/link";
 import { ArrowLeft, CreditCard } from "lucide-react";
+import LogoutButton from "@/components/LogoutButton";
 
 async function getUser() {
     const cookieStore = await cookies();
@@ -53,6 +54,8 @@ export default async function ProfilePage() {
                     <div className="border-t border-gray-100 pt-8">
                         <h3 className="text-lg font-bold text-gray-900 mb-6">Personal Information</h3>
                         <ProfileForm user={user} />
+                        
+                        <LogoutButton />
                     </div>
                 </div>
             </main>

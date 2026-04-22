@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -14,22 +15,22 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  name      String?
-  email     String?  @unique
-  whatsapp  String?
-  address   String?
-  city      String?
-  state     String?
-  zip       String?
+  name         String?
+  email        String? @unique
+  whatsapp     String?
+  address      String?
+  city         String?
+  state        String?
+  zip          String?
   profileImage String?
-  
-  password      String?  // Hashed password
-  phoneVerified Boolean  @default(false)
 
-  wallet    Wallet?
-  entries   PoolEntry[]
-  wins      Winner[]
-  adminLogs AdminLog[]
+  password      String? // Hashed password
+  phoneVerified Boolean @default(false)
+
+  wallet             Wallet?
+  entries            PoolEntry[]
+  wins               Winner[]
+  adminLogs          AdminLog[]
   withdrawalRequests WithdrawalRequest[]
 
   referralCode String? @unique
@@ -39,10 +40,10 @@ model User {
 }
 
 model ReferralSetting {
-  id          String   @id @default(uuid())
-  rewardAmount Float   @default(50.0) // Amount in Rs
-  isActive    Boolean  @default(true)
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  rewardAmount Float    @default(50.0) // Amount in Rs
+  isActive     Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
 }
 
 model Wallet {
@@ -69,15 +70,15 @@ model Transaction {
 }
 
 model WithdrawalRequest {
-  id        String   @id @default(uuid())
-  userId    String
-  amount    Float
-  bankName  String
+  id            String            @id @default(uuid())
+  userId        String
+  amount        Float
+  bankName      String
   accountNumber String
-  accountTitle String
-  status    TransactionStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  accountTitle  String
+  status        TransactionStatus @default(PENDING)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -109,8 +110,8 @@ model PoolEntry {
   ticketNumber Int // Simple sequential number or random
   purchasedAt  DateTime @default(now())
 
-  pool LotteryPool @relation(fields: [poolId], references: [id])
-  user User        @relation(fields: [userId], references: [id])
+  pool   LotteryPool @relation(fields: [poolId], references: [id])
+  user   User        @relation(fields: [userId], references: [id])
   winner Winner?
 
   @@unique([poolId, ticketNumber])
